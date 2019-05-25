@@ -1,6 +1,7 @@
 const glob = require('glob');
+const fs = require('fs');
 const { readFile, writeFile } = require('fs-extra');
-const { resolve } = require('path');
+const { resolve, join } = require('path');
 
 const nextUrlPrefix = '/_next/';
 const excludeFiles = ['react-loadable-manifest.json', 'build-manifest.json'];
@@ -48,12 +49,33 @@ function getOriginalManifest(manifestFilePath) {
   });
 }
 
+function getStaticAssets(dir, arr = [], folder) {
+  const result = fs.readdirSync(dir);
+
+  result.forEach(part => {
+    const absolutePath = join(dir, part);
+    const pathStat = fs.statSync(absolutePath);
+
+    if (pathStat.isDirectory()) {
+      getStaticAssets(absolutePath, arr, part);
+      return;
+    }
+    arr.push(folder ? `static/${folder}/${part}` : `static/${part}`);
+  });
+
+  return arr;
+}
+
 function buildNextManifest(originalManifest, urlPrefix = '') {
+  const staticAssets = getStaticAssets(join(__dirname, './static'));
+  console.log(staticAssets);
   return originalManifest
     .filter(entry => !excludeFiles.includes(entry.url))
     .map(entry => ({
-      url: `${urlPrefix}${nextUrlPrefix}${entry.url}`,
-      revision: entry.revision
+      url: staticAssets.includes(entry.url)
+        ? `${urlPrefix}${entry.url}`
+        : `${urlPrefix}${nextUrlPrefix}${entry.url}`,
+      revision: entry.revision,
     }));
 }
 
